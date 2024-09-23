@@ -94,13 +94,31 @@ func (c Config) Write() error {
 	logrus.Infof("Saving config to %s", c.Path)
 	p := c.Path
 	c.Path = ""
+
+	var existingConfig Config
+	if _, err := os.Stat(p); err == nil {
+		file, err := os.Open(p)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		if err := json.NewDecoder(file).Decode(&existingConfig); err != nil {
+			return err
+		}
+	}
+	for key, server := range c.Servers {
+		existingConfig.Servers[key] = server
+	}
+	existingConfig.CurrentServer = c.CurrentServer
+
 	output, err := os.OpenFile(p, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
 	defer output.Close()
 
-	return json.NewEncoder(output).Encode(c)
+	return json.NewEncoder(output).Encode(existingConfig)
 }
 
 func (c Config) FocusedServer() (*ServerConfig, error) {
